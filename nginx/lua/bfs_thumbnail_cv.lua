@@ -4,6 +4,10 @@ local local_location_prefix = "/local"
 local opath, fname, width, height, ext, debug =
 ngx.var.opath, ngx.var.fname, ngx.var.width, ngx.var.height, ngx.var.ext, ngx.var.debug
 
+local function check_system_status_code(c)
+    return c == 0
+end
+
 local function return_server_error(msg)
   ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
   ngx.header["Content-type"] = "text/html"
@@ -39,6 +43,7 @@ end
 
 local function exist_file(path)
     if not path then return false end
+    -- return true if succeed, else return nil, err_str
     return os.rename(path, path)
 end
 
@@ -58,7 +63,7 @@ local function com_cmd_resize(orig_pic_bob, w, h, cmd_getter)
     local dst_file = base_dir .. dst_uri
     local dir = src_file:match("(.*/)")
     if not exist_dir(dir) then
-        if os.execute("mkdir -p " .. dir) then
+        if not check_system_status_code(os.execute("mkdir -p " .. dir)) then
             -- return_server_error()
             return_orig_pic()
         end
@@ -71,8 +76,7 @@ local function com_cmd_resize(orig_pic_bob, w, h, cmd_getter)
     src_f:write(orig_pic_bob)
     src_f:close()
     local cmd = cmd_getter(w, h, src_file, dst_file)
-    local result = os.execute(cmd)
-    if result ~= 0 then
+    if not check_system_status_code(os.execute(cmd)) then
         if debug then
             ngx.log(ngx.ERR, "exec gm convert failed")
         end
@@ -94,7 +98,7 @@ local function com_stdin_cmd_resize(orig_pic_bob, w, h, cmd_getter)
     local dst_uri = opath_hash_path .. fname .. "_" .. w .. "x" .. h .. "." .. ext
     local dst_file = base_dir .. dst_uri
     if not exist_dir(dir) then
-        if os.execute("mkdir -p " .. dir) then
+        if not check_system_status_code(os.execute("mkdir -p " .. dir)) then
             if debug then
                 ngx.log(ngx.ERR, "mkdir failed")
             end
